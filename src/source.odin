@@ -43,4 +43,3 @@ main :: proc() {
 	Application_Run(&application)
 
 }
-

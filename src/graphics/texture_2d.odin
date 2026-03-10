@@ -14,7 +14,6 @@ Texture2D :: struct {
 
 Texture2D_Load :: proc(path: cstring) -> Texture2D {
     using debug
-    image.set_flip_vertically_on_load(1)
     width, height, channels: i32
     data := image.load(path, &width, &height, &channels, 4)
     if data == nil {

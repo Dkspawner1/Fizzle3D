@@ -3,7 +3,10 @@ package main
 
 import "Fizzle3D:debug"
 import "Fizzle3D:graphics"
-import "Fizzle3D:scene"
+import "base:runtime"
+import "core:fmt"
+import "core:math/linalg"
+import "core:strings"
 import gl "vendor:OpenGL"
 import "vendor:glfw"
 
@@ -13,7 +16,10 @@ GL_MINOR_VERSION :: 6
 
 Application :: struct {
 	handle:                           glfw.WindowHandle,
-	menu:                             scene.Menu,
+	buttons:                          [3]graphics.Texture2D,
+	shader:                           graphics.Shader,
+	quad:                             graphics.Quad,
+	projection:                       linalg.Matrix4f32,
 	last_frame, current_frame, delta: f64,
 }
 
@@ -23,7 +29,7 @@ Application_Run :: proc(application: ^Application) {
 		critical("APPLICATION: Unable to initialize, panic!")
 		return
 	}
-	set_callbacks(handle)
+	set_callbacks(handle, application)
 	load_assets(application)
 
 	for !WindowShouldClose(handle) {
@@ -33,15 +39,26 @@ Application_Run :: proc(application: ^Application) {
 }
 
 Application_Destroy :: proc(application: ^Application) {
-	using application, graphics, scene, glfw
-	Menu_Destroy(&menu)
+	using application, graphics, glfw
+	for &button in &buttons {
+		Texture2D_Destroy(&button)
+
+	}
+	Shader_Destroy(&shader)
+	Quad_Destroy(&quad)
 	DestroyWindow(handle)
 	Terminate()
 }
 
 @(private = "file")
+make_ortho :: proc(w, h: f32) -> linalg.Matrix4f32 {
+	// left=0, right=w, bottom=h, top=0 → (0,0) top-left, Y down
+	return linalg.matrix_ortho3d_f32(0, w, h, 0, -1, 1)
+}
+
+@(private = "file")
 initialize :: proc(application: ^Application) -> bool {
-	using debug, application, scene, graphics, glfw
+	using debug, application, graphics, glfw
 	if !Init() {
 		critical("GLFW: Unable to initialize")
 		return false
@@ -74,35 +91,54 @@ initialize :: proc(application: ^Application) -> bool {
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-	menu = Menu_Create()
+	projection = make_ortho(f32(mode.width), f32(mode.height))
+	shader = Shader_Create(VERT_SRC, FRAG_SRC)
+	quad = Quad_Create()
 	return true
 }
 
 @(private = "file")
 load_assets :: proc(application: ^Application) {
-	using application, scene, graphics
-	Menu_LoadAssets(&menu)
-
+	using debug, application, graphics
+	for i in 0 ..< len(buttons) {
+		path := fmt.ctprintf("assets/btn%d.png", i)
+		buttons[i] = Texture2D_Load(path)
+	}
 }
 
 @(private = "file")
 update :: proc(application: ^Application) {
-	using application, scene, glfw
+	using application, glfw
 	current_frame = GetTime()
 	delta = current_frame - last_frame
 	last_frame = current_frame
 	PollEvents()
-	Menu_Update(&menu)
-
 }
 
 @(private = "file")
 render :: proc(application: ^Application) {
-	using application, graphics, scene, glfw
+	using application, graphics, glfw
 	gl.ClearColor(rgba255(255, 0, 147, 255))
 	gl.Clear(gl.COLOR_BUFFER_BIT)
+	for i := 0; i < len(buttons); i += 1 {
 
-	Menu_Render(&menu)
+		if buttons[i].visible {
+			Shader_Use(shader)
+			Shader_Set_Mat4(shader, "u_projection", projection)
+			Shader_Set_Int(shader, "u_texture", 0)
+			gl.ActiveTexture(gl.TEXTURE0)
+			gl.BindTexture(gl.TEXTURE_2D, buttons[i].id)
+
+			Quad_Draw(
+				quad,
+				shader,
+				5,
+				175.0 + (f32(i) * 130.0),
+				f32(buttons[i].width / 4.0),
+				f32(buttons[i].height / 4.0),
+			)
+		}
+	}
 
 	SwapBuffers(handle)
 }
@@ -122,12 +158,19 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
 
 @(private = "file")
 size_callback :: proc "c" (window: glfw.WindowHandle, width, height: i32) {
+	context = runtime.default_context()
 	gl.Viewport(0, 0, width, height)
+	app := cast(^Application)glfw.GetWindowUserPointer(window)
+	if app != nil {
+		app.projection = make_ortho(f32(width), f32(height))
+	}
 }
 
+
 @(private = "file")
-set_callbacks :: proc(window: glfw.WindowHandle) {
+set_callbacks :: proc(window: glfw.WindowHandle, app: ^Application) {
 	using glfw
+	SetWindowUserPointer(window, app)
 	SetKeyCallback(window, key_callback)
 	SetFramebufferSizeCallback(window, size_callback)
 }

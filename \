@@ -1,0 +1,15 @@
+[Logger] Logger initialized with level: DEBUG
+17:21:34 INFO  [source.odin] DEBUG MODE ACTIVE - Memory tracking enabled
+17:21:35 DEBUG [source.odin] === Memory Report ===
+17:21:35 INFO  [source.odin] No memory leaks detected
+[Logger] Logger shutdown
+
+[Process exited 0]
+
+
+
+
+
+
+
+

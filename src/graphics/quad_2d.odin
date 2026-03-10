@@ -1,17 +1,19 @@
 package graphics
 
 import gl "vendor:OpenGL"
+import "core:math/linalg"
 
 Quad :: struct {
     vao, vbo, ebo: u32,
 }
 
 Quad_Create :: proc() -> Quad {
+    // Unit quad: (0,0) to (1,1) so model matrix maps directly to pixels
     vertices := [16]f32{
-        -0.5, -0.5,  0.0, 0.0,
-         0.5, -0.5,  1.0, 0.0,
-         0.5,  0.5,  1.0, 1.0,
-        -0.5,  0.5,  0.0, 1.0,
+        0.0, 0.0,  0.0, 0.0,
+        1.0, 0.0,  1.0, 0.0,
+        1.0, 1.0,  1.0, 1.0,
+        0.0, 1.0,  0.0, 1.0,
     }
     indices := [6]u32{0, 1, 2, 2, 3, 0}
 
@@ -38,7 +40,11 @@ Quad_Create :: proc() -> Quad {
     return q
 }
 
-Quad_Draw :: proc(q: Quad) {
+// Draw at pixel coordinates. x,y = top-left corner, w,h = pixel size.
+Quad_Draw :: proc(q: Quad, s: Shader, x, y, w, h: f32) {
+    model := linalg.matrix4_translate_f32({x, y, 0}) *
+             linalg.matrix4_scale_f32({w, h, 1})
+    Shader_Set_Mat4(s, "u_model", model)
     gl.BindVertexArray(q.vao)
     gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
     gl.BindVertexArray(0)
