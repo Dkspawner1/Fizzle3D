@@ -1,11 +1,8 @@
 #+feature using-stmt
 package main
 import "Fizzle3D:debug"
-import "core:c"
 import "core:mem"
-import gl "vendor:OpenGL"
 import "vendor:glfw"
-import "vendor:stb/image"
 
 main :: proc() {
 	using debug, glfw
